@@ -53,3 +53,9 @@ dkms.conf
 
 # debug information files
 *.dwo
+Debug/
+Release/
+*.elf
+*.map
+__pycache__/
+.DS_Store
