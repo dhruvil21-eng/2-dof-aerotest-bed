@@ -23,6 +23,10 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include "usbd_cdc_if.h"
+#include<stdio.h>
+#include <math.h>
+#include <string.h>
 
 /* USER CODE END Includes */
 
@@ -89,15 +93,31 @@ int main(void)
   MX_GPIO_Init();
   MX_USB_DEVICE_Init();
   /* USER CODE BEGIN 2 */
-
+uint32_t last = HAL_GetTick();
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-	  HAL_GPIO_TogglePin(LED_GPIO_Port, LED_Pin);
-	  HAL_Delay(3000);
+	  if (HAL_GetTick() - last >= 10 )
+	  {
+		  last += 10;
+
+		  uint32_t t = HAL_GetTick();
+		  int32_t value = (int32_t)(1000.0f * sinf(2.0f * 3.14159265f * t / 1000.0f));
+
+		  char buff[32];
+		  int size = snprintf(buff, sizeof(buff), "%lu,%ld\n", t, value);
+		  CDC_Transmit_FS((uint8_t*)buff, size);
+
+		  static uint32_t count = 0;
+		  if (++count % 10 == 0)
+		  {
+			  HAL_GPIO_TogglePin(LED_GPIO_Port, LED_Pin);
+		  }
+
+	  }
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
