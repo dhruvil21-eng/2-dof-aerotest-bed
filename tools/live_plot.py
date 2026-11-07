@@ -12,7 +12,7 @@ try:
 
     fig, ax = plt.subplots()
     line = ax.plot([], [])[0]
-    ax.set_ylim(-1100, 1100)
+    ax.set_ylim(-1000, 5000)
 
     x_data = deque(maxlen=500)
     y_data = deque(maxlen=500)
@@ -48,4 +48,3 @@ except serial.SerialException:
 finally:
     if ser is not None:
         ser.close()
-        

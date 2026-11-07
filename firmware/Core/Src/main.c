@@ -40,7 +40,8 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-
+#define AS5600_ADDR (0x36 << 1)
+#define AS5600_RAW_ANGLE_H 0x0C
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -102,6 +103,7 @@ int main(void)
   MX_TIM3_Init();
   /* USER CODE BEGIN 2 */
 uint32_t last = HAL_GetTick();
+HAL_StatusTypeDef enc_status = HAL_I2C_IsDeviceReady(&hi2c1, AS5600_ADDR, 3, 10);
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -113,14 +115,21 @@ uint32_t last = HAL_GetTick();
 		  last += 10;
 
 		  uint32_t t = HAL_GetTick();
-		  int32_t value = (int32_t)(1000.0f * sinf(2.0f * 3.14159265f * t / 1000.0f));
+		  int32_t value = -1;
+
+		  uint8_t buf[2];
+		  if (HAL_I2C_Mem_Read(&hi2c1, AS5600_ADDR, AS5600_RAW_ANGLE_H,
+		                       I2C_MEMADD_SIZE_8BIT, buf, 2, 5) == HAL_OK)
+		  {
+		      value = ((buf[0] & 0x0F) << 8) | buf[1];
+		  }
 
 		  char buff[32];
 		  int size = snprintf(buff, sizeof(buff), "%lu,%ld\n", t, value);
 		  CDC_Transmit_FS((uint8_t*)buff, size);
 
 		  static uint32_t count = 0;
-		  if (++count % 10 == 0)
+		  if (++count % (enc_status == HAL_OK ? 50 : 5) == 0)
 		  {
 			  HAL_GPIO_TogglePin(LED_GPIO_Port, LED_Pin);
 		  }
