@@ -30,6 +30,7 @@
 #include<stdio.h>
 #include <math.h>
 #include <string.h>
+#include "esc.h"
 
 /* USER CODE END Includes */
 
@@ -102,39 +103,48 @@ int main(void)
   MX_TIM2_Init();
   MX_TIM3_Init();
   /* USER CODE BEGIN 2 */
-uint32_t last = HAL_GetTick();
-HAL_StatusTypeDef enc_status = HAL_I2C_IsDeviceReady(&hi2c1, AS5600_ADDR, 3, 10);
+  esc_init();                       // start PWM at 1000 us (motor off)
+  HAL_Delay(8000);                  // give the ESC 3 s at minimum throttle to arm
+
+  for (uint16_t us = 1000; us <= 1500; us += 5) {
+      esc_set_us(us);               // step the throttle up 5 us at a time
+      HAL_Delay(50);                // 20 steps x 50 ms = 1 s ramp
+  }
+
+  HAL_Delay(3000);                  // hold at 1100 us for 3 s
+  esc_set_us(1000);                 // back to minimum = motor stops
+  uint32_t last = HAL_GetTick();
+  HAL_StatusTypeDef enc_status = HAL_I2C_IsDeviceReady(&hi2c1, AS5600_ADDR, 3, 10);
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
-  {
-	  if (HAL_GetTick() - last >= 10 )
-	  {
-		  last += 10;
+   {
+       if (HAL_GetTick() - last >= 10)            // run every 10 ms = 100 Hz
+       {
+           last += 10;                            // schedule the next sample (no drift)
 
-		  uint32_t t = HAL_GetTick();
-		  int32_t value = -1;
+           uint32_t t = HAL_GetTick();            // time stamp in ms
+           int32_t value = -1;                    // -1 means "encoder read failed"
 
-		  uint8_t buf[2];
-		  if (HAL_I2C_Mem_Read(&hi2c1, AS5600_ADDR, AS5600_RAW_ANGLE_H,
-		                       I2C_MEMADD_SIZE_8BIT, buf, 2, 5) == HAL_OK)
-		  {
-		      value = ((buf[0] & 0x0F) << 8) | buf[1];
-		  }
+           uint8_t buf[2];                        // 2 bytes from the AS5600
+           if (HAL_I2C_Mem_Read(&hi2c1, AS5600_ADDR, AS5600_RAW_ANGLE_H,
+                                I2C_MEMADD_SIZE_8BIT, buf, 2, 5) == HAL_OK) // read RAW ANGLE regs 0x0C-0x0D
+           {
+               value = ((buf[0] & 0x0F) << 8) | buf[1]; // combine into 12-bit angle, 0-4095
+           }
 
-		  char buff[32];
-		  int size = snprintf(buff, sizeof(buff), "%lu,%ld\n", t, value);
-		  CDC_Transmit_FS((uint8_t*)buff, size);
+           char buff[32];                         // text buffer for one line
+           int size = snprintf(buff, sizeof(buff), "%lu,%ld\n", t, value); // format "t,value\n"
+           CDC_Transmit_FS((uint8_t*)buff, size); // send over USB to the Python plot
 
-		  static uint32_t count = 0;
-		  if (++count % (enc_status == HAL_OK ? 50 : 5) == 0)
-		  {
-			  HAL_GPIO_TogglePin(LED_GPIO_Port, LED_Pin);
-		  }
-
-	  }
+           static uint32_t count = 0;             // keeps its value between loops
+           if (++count % (enc_status == HAL_OK ? 50 : 5) == 0) // slow blink = encoder OK, fast = not found
+           {
+               HAL_GPIO_TogglePin(LED_GPIO_Port, LED_Pin);
+           }
+       }
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
